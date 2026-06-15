@@ -113,7 +113,7 @@ class MotorLogico:
                     antecedente, consequente = p.split("->", 1)
                     if antecedente in p_set and c_norm == consequente:
                         return f"**Regra Identificada:** Modus Ponens (MP)\n\n" \
-                               f"**Explicação:** A partir de uma condicional `{antecedente}->{consequente}` and da afirmação do seu antecedente `{antecedente}`, " \
+                               f"**Explicação:** A partir de uma condicional `{antecedente}->{consequente}` e da afirmação do seu antecedente `{antecedente}`, " \
                                f"infere-se legitimamente o consequente `{consequente}`."
 
             # 2. MODUS TOLLENS (MT) -> A->B, ~B => ~A
@@ -127,7 +127,7 @@ class MotorLogico:
                                f"**Explicação:** A partir de uma condicional `{antecedente}->{consequente}` e da negação do seu consequente `{neg_consequente}`, " \
                                f"infere-se a negação do seu antecedente `{neg_antecedente}`."
 
-            # 3. SILOGISMO HIPOTÉTICO (SH) -> BUG CORRIGIDO AQUI (dicionais mudado para condicionais)
+            # 3. SILOGISMO HIPOTÉTICO (SH) -> CONDICIONAIS CORRIGIDO!
             condicionais = [p for p in p_norm if "->" in p and "<->" not in p]
             if len(condicionais) >= 2:
                 for p1 in condicionais:
@@ -335,17 +335,17 @@ with st.sidebar.expander("União (U)"):
 # --- CORPO PRINCIPAL DOS MÓDULOS ---
 motor = MotorLogico()
 
-# ADICIONADO O MÓDULO A EXPLICITAMENTE NAS ABAS ABAIXO
+# CRIAÇÃO DAS 3 ABAS COM O MÓDULO A INCLUSO
 tab_interpretador, tab_equiv, tab_inferencia = st.tabs([
     "Módulo A: Interpretador de Expressões",
     "Módulo B: Provador de Equivalência",
     "Módulo C: Motor de Inferência (Validador)"
 ])
 
-# --- MÓDULO A (NOVO) ---
+# --- MÓDULO A (INTERPRETADOR) ---
 with tab_interpretador:
-    st.header("Interpretador e Normalizador de Fórmulas")
-    st.write("Digite uma expressão para ver como o Motor realiza a análise léxica, normalização das variáveis e a tradução para código Python computável.")
+    st.header("Módulo A: Interpretador e Normalizador de Fórmulas")
+    st.write("Digite uma expressão para ver como o Motor realiza a análise léxica, normalização de variáveis para maiúsculas e a tradução para código Python (`eval`) de forma segura.")
     
     expressao_teste = st.text_input("Insira uma expressão lógica para visualização da tradução:", value="~A -> (B . c)'")
     
@@ -358,13 +358,13 @@ with tab_interpretador:
             col_a1, col_a2 = st.columns(2)
             with col_a1:
                 st.info(f"**Expressão Padronizada (Motor):** `{expr_normalizada}`")
-                st.success(f"**Tradução Interna Python (`eval`):** `{expr_python}`")
+                st.success(f"**Tradução Interna Python:** `{expr_python}`")
             with col_a2:
                 st.metric("Variáveis Identificadas", ", ".join(variaveis_detectadas) if variaveis_detectadas else "Nenhuma")
         except Exception as e:
-            st.error(f"Erro ao processar expressão no interpretador: {e}")
+            st.error(f"Erro ao processar no interpretador: {e}")
 
-# --- MÓDULO B ---
+# --- MÓDULO B (EQUIVALÊNCIA) ---
 with tab_equiv:
     st.header("Verificador de Equivalência Lógica")
     st.write("Insira duas expressões para verificar se elas possuem tabelas-verdade idênticas (Ex: Leis de De Morgan, Contrapositiva).")
@@ -390,7 +390,7 @@ with tab_equiv:
         else:
             st.warning("Por favor, preencha ambas as expressões.")
 
-# --- MÓDULO C ---
+# --- MÓDULO C (INFERÊNCIA) ---
 with tab_inferencia:
     st.header("Validador de Argumentos Lógicos com Explicação Didática")
     st.write("Defina um conjunto de premissas e veja se a conclusão decorre logicamente delas.")
