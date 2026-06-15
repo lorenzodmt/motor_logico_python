@@ -5,10 +5,10 @@ import re
 
 class MotorLogico:
     def __init__(self):
-        # Módulo A: Mapeamento sugerido de caracteres legíveis para os operadores padrão do Python
+        # Módulo A: Mapeamento sugerido de caracteres legíveis para os operadores padrão do Python [cite: 23]
         self.REPLACEMENTS = [
             ('<->', '=='),
-            ('->', ' <= '),  # P -> Q é equivalente a P <= Q em lógica booleana
+            ('->', ' <= '),  # P -> Q é equivalente a P <= Q em lógica booleana [cite: 27, 28]
             ('&', ' and '),
             ('|', ' or ')
         ]
@@ -17,17 +17,23 @@ class MotorLogico:
         """Módulo A: Trata a entrada de dados (strings) limpando e padronizando os conectivos."""
         expr = expressao.strip()
         
-        # Trata a negação com aspa simples após fechar parênteses (Ex: (p.q)' vira ~(p.q))
+        # 1. Se o usuário digitou operadores nativos do Python (and, or, not), padroniza temporariamente para os símbolos do motor
+        # Isso evita que as Regex de negação quebrem as palavras 'not', 'and', 'or'
+        expr = re.sub(r'\band\b', '&', expr, flags=re.IGNORECASE)
+        expr = re.sub(r'\bor\b', '|', expr, flags=re.IGNORECASE)
+        expr = re.sub(r'\bnot\b', '~', expr, flags=re.IGNORECASE)
+
+        # 2. Trata a negação com aspa simples após fechar parênteses (Ex: (p.q)' vira ~(p.q))
         while ")'" in expr:
             expr = re.sub(r'(\((?:[^()]*)\))\'', r'~\1', expr)
         
-        # Trata a negação pós-fixada de variáveis isoladas (Ex: p' ou P' vira ~P)
+        # 3. Trata a negação pós-fixada de variáveis isoladas (Ex: p' ou P' vira ~P)
         expr = re.sub(r'\b([a-zA-Z])\'', r'~\1', expr)
         
-        # Converte todas as variáveis proposicionais isoladas para maiúsculas
+        # 4. Converte todas as variáveis proposicionais isoladas para maiúsculas (ignora operadores lógicos)
         expr = re.sub(r'\b[a-z]\b', lambda m: m.group(0).upper(), expr)
         
-        # Padroniza os conectivos alternativos para os símbolos padrão do motor
+        # 5. Padroniza os conectivos alternativos para os símbolos padrão do motor
         expr = expr.replace('+', '|')  # Disjunção
         expr = expr.replace('.', '&')  # Conjunção
         
@@ -38,6 +44,7 @@ class MotorLogico:
         variaveis = set()
         for expr in expressoes:
             expr_norm = self.normalizar_expressao(expr)
+            # Captura apenas letras maiúsculas isoladas (variáveis)
             encontradas = re.findall(r'\b[a-zA-Z]\b', expr_norm)
             variaveis.update([v.upper() for v in encontradas])
         return sorted(list(variaveis))
@@ -46,7 +53,8 @@ class MotorLogico:
         """Módulo A: Mapeia a expressão para que o Python possa computar os valores booleanos."""
         expr_traduzida = self.normalizar_expressao(expressao)
         
-        # Envelopa a negação (not) para evitar quebras de precedência com o '<=' no eval
+        # Envelopa a negação (~ ou not) para evitar quebras de precedência com o '<=' no eval do Python
+        # Transforma '~X' em '(not X)' de forma segura
         while '~' in expr_traduzida:
             expr_traduzida = re.sub(r'~([^()~&|+\-<>]+|\([^()]*\))', r'(not \1)', expr_traduzida)
 
@@ -57,7 +65,7 @@ class MotorLogico:
         return expr_traduzida
 
     def avaliar_linha(self, expressao_preparada: str, contexto: dict) -> bool:
-        """Avalia computacionalmente o valor-verdade da expressão interpretada."""
+        """Avalia computacionalmente o valor-verdade da expressão interpretada usando eval()."""
         try:
             return bool(eval(expressao_preparada, {}, contexto))
         except Exception as e:
@@ -74,7 +82,7 @@ class MotorLogico:
         variaveis = self.extrair_variaveis([expr1, expr2])
         expr1_prep = self.preparar_expressao(expr1)
         expr2_prep = self.preparar_expressao(expr2)
-        combinacoes = self.gerar_combinacoes(variaveis)
+        combinacoes = self.gerar_combinations = self.gerar_combinacoes(variaveis)
 
         linhas_tabela = []
         equivalentes = True
@@ -152,14 +160,6 @@ class MotorLogico:
                         return f"**Regra Identificada:** Simplificação (S)\n\n" \
                                f"**Explicação:** De uma conjunção (`{p}`), onde ambas as partes são verdadeiras, extrai-se legitimamente `{c_norm}`."
 
-            # União (U)
-            if "&" in c_norm:
-                partes_c = c_norm.split("&")
-                if len(partes_c) == 2:
-                    if partes_c[0] in p_set and partes_c[1] in p_set:
-                        return f"**Regra Identificada:** União (U)\n\n" \
-                               f"**Explicação:** Duas premissas verdadeiras isoladas foram unidas através do conectivo de conjunção."
-
             return "**Regra Identificada:** Dedução Válida Geral.\n\n" \
                    "**Explicação:** O argumento foi considerado válido através do teste da matriz da tabela-verdade."
         else:
@@ -218,9 +218,9 @@ Mapeamento de Tabelas-Verdade, Equivalências e Motores de Inferência Aplicados
 st.sidebar.header("🔌 Guia de Conectivos")
 st.sidebar.markdown("""
 Use a seguinte sintaxe para as expressões:
-* **Negação:** `~p`, `p'` ou `(p.q)'`
-* **Conjunção (E):** `p & q` ou `p . q`
-* **Disjunção (OU):** `p | q` ou `p + q`
+* **Negação:** `~p`, `p'`, `(p.q)'` ou `not p`
+* **Conjunção (E):** `p & q`, `p . q` ou `p and q`
+* **Disjunção (OU):** `p | q`, `p + q` ou `p or q`
 * **Condicional:** `p -> q`
 * **Bicondicional:** `p <-> q`
 """)
@@ -238,8 +238,6 @@ with st.sidebar.expander("Silogismo Disjuntivo (SD)"):
     st.markdown("**Premissas:** `p + q, p'` \n\n**Conclusão:** `q`")
 with st.sidebar.expander("Simplificação (S)"):
     st.markdown("**Premissas:** `p . q` \n\n**Conclusão:** `p`")
-with st.sidebar.expander("União (U)"):
-    st.markdown("**Premissas:** `p, q` \n\n**Conclusão:** `p . q`")
 
 
 # --- CORPO PRINCIPAL DOS MÓDULOS ---
@@ -256,12 +254,11 @@ with tab_modulo_a:
     st.header("Módulo A: Interpretador de Expressões")
     st.write("Insira uma string contendo proposições compostas e conectivos lógicos para ver como o motor mapeia para os operadores nativos do Python.")
     
-    input_teste = st.text_input("Digite uma expressão de teste (Ex: (P . Q)' -> ~R + S):", value="(p . q)' -> ~r")
+    input_teste = st.text_input("Digite uma expressão de teste (Ex: not (A and (not B))):", value="not (A and (not B))")
     
     if input_teste:
         st.subheader("Análise Sintática e Tradução do Interpretador")
         
-        # Gera os dados processados pelo Módulo A
         expr_normalizada = motor.normalizar_expressao(input_teste)
         expr_python = motor.preparar_expressao(input_teste)
         vars_identificadas = motor.extrair_variaveis([input_teste])
@@ -276,13 +273,13 @@ with tab_modulo_a:
 # --- MÓDULO B: VERIFICADOR DE EQUIVALÊNCIA ---
 with tab_modulo_b:
     st.header("Módulo B: Provador de Equivalência Lógica")
-    st.write("Insira duas expressões para verificar se elas possuem tabelas-verdade idênticas (Ex: Contrapositiva, Leis de De Morgan).")
+    st.write("Insira duas expressões para verificar se elas possuem tabelas-verdade idênticas.")
     
     col1, col2 = st.columns(2)
     with col1:
-        e1 = st.text_input("Primeira Expressão (Entrada 1):", value="A -> B", key="eq_e1")
+        e1 = st.text_input("Primeira Expressão (Entrada 1):", value="not (A and (not B))", key="eq_e1")
     with col2:
-        e2 = st.text_input("Segunda Expressão (Entrada 2):", value="~B -> ~A", key="eq_e2")
+        e2 = st.text_input("Segunda Expressão (Entrada 2):", value="A -> B", key="eq_e2")
 
     if st.button("Calcular Equivalência", key="btn_equiv"):
         if e1 and e2:
@@ -318,7 +315,7 @@ with tab_modulo_c:
     premissas_brutas = []
     st.write("#### Premissas:")
     
-    defaults_premissas = ["p -> q, p"]
+    defaults_premissas = ["A -> B, A"]
     
     for i in range(st.session_state.num_premissas):
         val_default = defaults_premissas[i] if i < len(defaults_premissas) else ""
@@ -327,7 +324,7 @@ with tab_modulo_c:
             premissas_brutas.append(p_in)
 
     st.write("#### Conclusão:")
-    conclusao_input = st.text_input("Conclusão do Argumento:", value="q", key="conclusao")
+    conclusao_input = st.text_input("Conclusão do Argumento:", value="B", key="conclusao")
 
     if st.button("Avaliar Validade do Argumento", key="btn_infer"):
         if premissas_brutas and conclusao_input:
@@ -353,6 +350,6 @@ with tab_modulo_c:
                 st.dataframe(df_argumento, use_container_width=True)
                 
             except Exception as e:
-                st.error(f"Erro ao processar o argumento: {e}")
+                st.error(f"Erro ao processar the argumento: {e}")
         else:
             st.warning("Certifique-se de preencher as premissas e a conclusão.")
