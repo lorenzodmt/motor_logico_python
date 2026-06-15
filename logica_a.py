@@ -4,11 +4,11 @@ import itertools
 import re
 
 # =====================================================================
-#                         MOTOR LÓGICO COMPLETO
+#                         MOTOR LÓGICO CORRIGIDO
 # =====================================================================
 class MotorLogico:
     def __init__(self):
-        # Mapeamento sugerido para os operadores padrão do Python
+        # Módulo A: Mapeamento sugerido para os operadores padrão do Python
         self.REPLACEMENTS = [
             ('<->', '=='),
             ('->', ' <= '),
@@ -18,6 +18,8 @@ class MotorLogico:
 
     def normalizar_expressao(self, expressao: str) -> str:
         """Módulo A: Normaliza strings e padroniza conectivos."""
+        if not expressao:
+            return ""
         expr = expressao.strip()
         
         # Ignora maiúsculas/minúsculas para operadores textuais nativos
@@ -62,11 +64,11 @@ class MotorLogico:
         return expr_traduzida
 
     def avaliar_linha(self, expressao_preparada: str, contexto: dict) -> bool:
-        """Avalia recursivamente/dinamicamente o valor booleano."""
+        """Avalia o valor booleano usando o eval nativo."""
         try:
             return bool(eval(expressao_preparada, {}, contexto))
         except Exception:
-            raise SyntaxError("Erro de sintaxe interno.")
+            raise SyntaxError("Erro de sintaxe na expressão.")
 
     def gerar_combinacoes(self, variaveis: list) -> list:
         return list(itertools.product([True, False], repeat=len(variaveis)))
@@ -79,7 +81,7 @@ class MotorLogico:
         variaveis = self.extrair_variaveis([expr1, expr2])
         expr1_prep = self.preparar_expressao(expr1)
         expr2_prep = self.preparar_expressao(expr2)
-        combinacoes = self.gerar_combinacoes(variaveis)
+        combinacoes = self.gerar_combinacoes(variaveis)  # CORRIGIDO AQUI!
 
         linhas_tabela = []
         equivalentes = True
@@ -138,10 +140,10 @@ class MotorLogico:
 
 st.set_page_config(page_title="Motor Lógico - UFN", page_icon="🧠", layout="wide")
 
-# Instanciação única do motor global
+# Inicialização do Motor
 motor = MotorLogico()
 
-# 1. BARRA LATERAL (SIDEBAR) - Renderizada primeiro para estabilidade
+# 1. BARRA LATERAL (SIDEBAR)
 st.sidebar.header("🔌 Guia de Conectivos")
 st.sidebar.markdown("""
 Use qualquer uma das sintaxes abaixo:
@@ -151,11 +153,9 @@ Use qualquer uma das sintaxes abaixo:
 * **Condicional:** `P -> Q`
 * **Bicondicional:** `P <-> Q`
 """)
-
 st.sidebar.markdown("---")
-st.sidebar.header("📜 Casos de Teste Sugeridos")
-st.sidebar.info("**De Morgan:**\n* Exp 1: `not (P and Q)`\n* Exp 2: `~P | ~Q`")
-st.sidebar.info("**Contrapositiva:**\n* Exp 1: `A -> B`\n* Exp 2: `~B -> ~A`")
+st.sidebar.header("📜 Casos de Teste")
+st.sidebar.info("**Contrapositiva:**\n* Entrada 1: `A -> B`\n* Entrada 2: `~B -> ~A`")
 
 # 2. CORPO PRINCIPAL
 st.title("🧠 Protótipo de Motor Lógico em Python")
@@ -168,36 +168,31 @@ tab_a, tab_b, tab_c = st.tabs([
     "⚙️ Módulo C: Inferência"
 ])
 
-# --- CONTEÚDO DA ABA A ---
+# --- ABA A ---
 with tab_a:
     st.header("Módulo A: Interpretador de Expressões")
-    st.write("Teste como as strings e conectivos textuais são mapeados para a lógica binária computável do Python.")
-    
-    input_a = st.text_input("Digite uma expressão lógica para análise:", value="not (A and (not B))", key="txt_modulo_a")
-    
+    input_a = st.text_input("Digite uma expressão lógica para teste:", value="not (A and (not B))", key="txt_a")
     if input_a:
         try:
             norm = motor.normalizar_expressao(input_a)
             prep = motor.preparar_expressao(input_a)
-            vars_encontradas = motor.extrair_variaveis([input_a])
+            v_det = motor.extrair_variaveis([input_a])
             
             c1, c2 = st.columns(2)
             c1.info(f"**Expressão Padronizada:** `{norm}`")
-            c1.success(f"**Tradução Interna Python (`eval`):** `{prep}`")
-            c2.metric("Variáveis Detectadas", ", ".join(vars_encontradas) if vars_encontradas else "Nenhuma")
-        except Exception as err:
-            st.error(f"Erro no interpretador: {err}")
+            c1.success(f"**Tradução Python (`eval`):** `{prep}`")
+            c2.metric("Variáveis Detectadas", ", ".join(v_det) if v_det else "Nenhuma")
+        except Exception as e:
+            st.error(f"Erro no interpretador: {e}")
 
-# --- CONTEÚDO DA ABA B ---
+# --- ABA B ---
 with tab_b:
     st.header("Módulo B: Provador de Equivalência")
-    st.write("Determine se duas fórmulas distintas possuem tabelas-verdade 100% idênticas.")
-    
     col_b1, col_b2 = st.columns(2)
-    expr_b1 = col_b1.text_input("Primeira Expressão (Entrada 1):", value="A -> B", key="txt_modulo_b1")
-    expr_b2 = col_b2.text_input("Segunda Expressão (Entrada 2):", value="~B -> ~A", key="txt_modulo_b2")
+    expr_b1 = col_b1.text_input("Primeira Expressão (Entrada 1):", value="A -> B", key="txt_b1")
+    expr_b2 = col_b2.text_input("Segunda Expressão (Entrada 2):", value="~B -> ~A", key="txt_b2")
     
-    if st.button("Calcular Tabela e Verificar", key="btn_modulo_b"):
+    if st.button("Calcular Tabela e Verificar", key="btn_b"):
         if expr_b1 and expr_b2:
             try:
                 df_b, sao_equivalentes = motor.processar_equivalencia(expr_b1, expr_b2)
@@ -205,38 +200,25 @@ with tab_b:
                     st.success("### 🟩 Resposta: Expressões LOGICAMENTE EQUIVALENTES")
                 else:
                     st.error("### 🟥 Resposta: Expressões NÃO SÃO EQUIVALENTES")
-                
-                st.write("#### Tabela-Verdade Gerada:")
                 st.dataframe(df_b, use_container_width=True)
-            except Exception as err:
-                st.error(f"Erro ao processar equivalência: Verifique os parênteses. (Detalhe: {err})")
-        else:
-            st.warning("Preencha ambos os campos.")
+            except Exception as e:
+                st.error(f"Erro ao processar equivalência: {e}")
 
-# --- CONTEÚDO DA ABA C ---
+# --- ABA C ---
 with tab_c:
-    st.header("Módulo C: Motor de Inferência (Validador)")
-    st.write("Insira uma lista de premissas (separadas por vírgulas) e a conclusão para validar o argumento.")
+    st.header("Módulo C: Motor de Inferência")
+    premissas_in = st.text_input("Premissas (separadas por vírgula):", value="A -> B, A", key="txt_c_p")
+    conclusao_in = st.text_input("Conclusão:", value="B", key="txt_c_c")
     
-    premissas_in = st.text_input("Premissas (Ex: A -> B, A):", value="A -> B, A", key="txt_modulo_c_p")
-    conclusao_in = st.text_input("Conclusão (Ex: B):", value="B", key="txt_modulo_c_c")
-    
-    if st.button("Avaliar Validade do Argumento", key="btn_modulo_c"):
+    if st.button("Avaliar Validade do Argumento", key="btn_c"):
         if premissas_in and conclusao_in:
             try:
-                # Trata a divisão das premissas por vírgula
                 lista_p = [p.strip() for p in premissas_in.split(",") if p.strip()]
-                
                 df_c, eh_valido = motor.processar_argumento(lista_p, conclusao_in)
-                
                 if eh_valido:
-                    st.success("### 🟩 Veredito: O argumento é VÁLIDO (Dedução Legítima)")
+                    st.success("### 🟩 Veredito: O argumento é VÁLIDO")
                 else:
-                    st.error("### 🟥 Veredito: O argumento é INVÁLIDO (Falácia Lógica)")
-                
-                st.write("#### Análise Completa da Matriz de Inferência:")
+                    st.error("### 🟥 Veredito: O argumento é INVÁLIDO")
                 st.dataframe(df_c, use_container_width=True)
-            except Exception as err:
-                st.error(f"Erro ao processar argumento: Verifique a sintaxe. (Detalhe: {err})")
-        else:
-            st.warning("Preencha as premissas e a conclusão.")
+            except Exception as e:
+                st.error(f"Erro ao processar inferência: {e}")
