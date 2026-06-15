@@ -5,7 +5,7 @@ import re
 
 class MotorLogico:
     def __init__(self):
-        # Mapeamento de conectivos para operadores válidos do Python
+        # Módulo A: Mapeamento sugerido de caracteres legíveis para os operadores padrão do Python
         self.REPLACEMENTS = [
             ('<->', '=='),
             ('->', ' <= '),  # P -> Q é equivalente a P <= Q em lógica booleana
@@ -14,27 +14,27 @@ class MotorLogico:
         ]
 
     def normalizar_expressao(self, expressao: str) -> str:
-        """Módulo A: Normaliza e padroniza a string de entrada para a sintaxe do motor."""
+        """Módulo A: Trata a entrada de dados (strings) limpando e padronizando os conectivos."""
         expr = expressao.strip()
         
-        # 1. Trata a negação com aspa simples após fechar parênteses (Ex: (p.q)' vira ~(p.q))
+        # Trata a negação com aspa simples após fechar parênteses (Ex: (p.q)' vira ~(p.q))
         while ")'" in expr:
             expr = re.sub(r'(\((?:[^()]*)\))\'', r'~\1', expr)
         
-        # 2. Trata a negação pós-fixada de variáveis isoladas (Ex: p' ou P' vira ~P)
+        # Trata a negação pós-fixada de variáveis isoladas (Ex: p' ou P' vira ~P)
         expr = re.sub(r'\b([a-zA-Z])\'', r'~\1', expr)
         
-        # 3. Converte todas as variáveis proposicionais isoladas para maiúsculas
+        # Converte todas as variáveis proposicionais isoladas para maiúsculas
         expr = re.sub(r'\b[a-z]\b', lambda m: m.group(0).upper(), expr)
         
-        # 4. Padroniza os conectivos alternativos acadêmicos para os símbolos padrão do motor
-        expr = expr.replace('+', '|')  # Disjunção (OU)
-        expr = expr.replace('.', '&')  # Conjunção (E)
+        # Padroniza os conectivos alternativos para os símbolos padrão do motor
+        expr = expr.replace('+', '|')  # Disjunção
+        expr = expr.replace('.', '&')  # Conjunção
         
         return "".join(expr.split())
 
     def extrair_variaveis(self, expressoes: list) -> list:
-        """Módulo A: Extrai todas as variáveis proposicionais limpas (letras isoladas)."""
+        """Módulo A: Extrai todas as variáveis proposicionais limpas da string."""
         variaveis = set()
         for expr in expressoes:
             expr_norm = self.normalizar_expressao(expr)
@@ -43,21 +43,21 @@ class MotorLogico:
         return sorted(list(variaveis))
 
     def preparar_expressao(self, expressao: str) -> str:
-        """Módulo A: Mapeia caracteres legíveis para os operadores padrão do Python (eval)."""
+        """Módulo A: Mapeia a expressão para que o Python possa computar os valores booleanos."""
         expr_traduzida = self.normalizar_expressao(expressao)
         
-        # Resolve a precedência e sintaxe da negação (not) no Python
+        # Envelopa a negação (not) para evitar quebras de precedência com o '<=' no eval
         while '~' in expr_traduzida:
             expr_traduzida = re.sub(r'~([^()~&|+\-<>]+|\([^()]*\))', r'(not \1)', expr_traduzida)
 
-        # Traduz os demais conectivos relacionais mapeados para o interpretador Python
+        # Mapeia os conectivos restantes para operadores Python válidos
         for logico, python in self.REPLACEMENTS:
             expr_traduzida = expr_traduzida.replace(logico, python)
             
         return expr_traduzida
 
     def avaliar_linha(self, expressao_preparada: str, contexto: dict) -> bool:
-        """Avalia computacionalmente o valor-verdade de uma expressão interpretada."""
+        """Avalia computacionalmente o valor-verdade da expressão interpretada."""
         try:
             return bool(eval(expressao_preparada, {}, contexto))
         except Exception as e:
@@ -69,6 +69,7 @@ class MotorLogico:
     def formatar_booleano(self, valor: bool) -> str:
         return 'V' if valor else 'F'
 
+    # --- MÓDULO B: PROVADOR DE EQUIVALÊNCIA ---
     def processar_equivalencia(self, expr1: str, expr2: str):
         variaveis = self.extrair_variaveis([expr1, expr2])
         expr1_prep = self.preparar_expressao(expr1)
@@ -94,21 +95,22 @@ class MotorLogico:
         df = pd.DataFrame(linhas_tabela)
         return df, equivalentes
 
+    # --- MÓDULO C: REGRAS DE INFERÊNCIA ---
     def explicar_argumento(self, premissas: list, conclusao: str, eh_valido: bool) -> str:
         p_norm = [self.normalizar_expressao(p) for p in premissas]
         c_norm = self.normalizar_expressao(conclusao)
         p_set = set(p_norm)
 
         if eh_valido:
-            # 1. MODUS PONENS (MP)
+            # Modus Ponens (MP)
             for p in p_norm:
                 if "->" in p and "<->" not in p:
                     antecedente, consequente = p.split("->", 1)
                     if antecedente in p_set and c_norm == consequente:
                         return f"**Regra Identificada:** Modus Ponens (MP)\n\n" \
-                               f"**Explicação:** A partir de `{antecedente}->{consequente}` e `{antecedente}`, infere-se `{consequente}`."
+                               f"**Explicação:** A partir de `{antecedente}->{consequente}` e do antecedente `{antecedente}`, infere-se `{consequente}`."
 
-            # 2. MODUS TOLLENS (MT)
+            # Modus Tollens (MT)
             for p in p_norm:
                 if "->" in p and "<->" not in p:
                     antecedente, consequente = p.split("->", 1)
@@ -116,9 +118,9 @@ class MotorLogico:
                     neg_antecedente = f"~{antecedente}" if not antecedente.startswith("~") else antecedente[1:]
                     if neg_consequente in p_set and c_norm == neg_antecedente:
                         return f"**Regra Identificada:** Modus Tollens (MT)\n\n" \
-                               f"**Explicação:** A partir de `{antecedente}->{consequente}` e `{neg_consequente}`, infere-se `{neg_antecedente}`."
+                               f"**Explicação:** A partir de `{antecedente}->{consequente}` e da negação do consequente `{neg_consequente}`, infere-se `{neg_antecedente}`."
 
-            # 3. SILOGISMO HIPOTÉTICO (SH)
+            # Silogismo Hipotético (SH)
             condicionais = [p for p in p_norm if "->" in p and "<->" not in p]
             if len(condicionais) >= 2:
                 for p1 in condicionais:
@@ -128,9 +130,9 @@ class MotorLogico:
                             b2, c = p2.split("->", 1)
                             if b == b2 and (c_norm == f"{a}->{c}" or c_norm == p1 or c_norm == p2):
                                 return f"**Regra Identificada:** Silogismo Hipotético (SH)\n\n" \
-                                       f"**Explicação:** Encadeamento lógico estruturado de causa e efeito demonstrado com sucesso."
+                                       f"**Explicação:** Encadeamento lógico dedutivo entre condicionais validado com sucesso."
 
-            # 4. SILOGISMO DISJUNTIVO (SD)
+            # Silogismo Disjuntivo (SD)
             for p in p_norm:
                 if "|" in p:
                     partes = p.split("|")
@@ -140,35 +142,31 @@ class MotorLogico:
                         neg_b = f"~{b}" if not b.startswith("~") else b[1:]
                         if (neg_a in p_set and c_norm == b) or (neg_b in p_set and c_norm == a):
                             return f"**Regra Identificada:** Silogismo Disjuntivo (SD)\n\n" \
-                                   f"**Explicação:** Eliminando uma das alternativas da disjunção por sua negação, conclui-se a outra."
+                                   f"**Explicação:** Sabendo que uma das opções da disjunção é falsa, a outra é necessariamente verdadeira."
 
-            # 7. SIMPLIFICAÇÃO (S)
+            # Simplificação (S)
             for p in p_norm:
                 if "&" in p:
                     partes_p = p.split("&")
                     if c_norm in partes_p:
                         return f"**Regra Identificada:** Simplificação (S)\n\n" \
-                               f"**Explicação:** De uma conjunção (`{p}`), extrai-se legitimamente qualquer um dos componentes independentes."
+                               f"**Explicação:** De uma conjunção (`{p}`), onde ambas as partes são verdadeiras, extrai-se legitimamente `{c_norm}`."
 
-            # 8. SIMPLIFICAÇÃO DISJUNTIVA (S+)
-            for p in p_norm:
-                if "|" in p and p.split("|")[0] == p.split("|")[1] and c_norm == p.split("|")[0]:
-                    return f"**Regra Identificada:** Simplificação Disjuntiva / Idempotência (S+)"
-            
-            # 9. UNIÃO (U)
+            # União (U)
             if "&" in c_norm:
                 partes_c = c_norm.split("&")
                 if len(partes_c) == 2:
                     if partes_c[0] in p_set and partes_c[1] in p_set:
                         return f"**Regra Identificada:** União (U)\n\n" \
-                               f"**Explicação:** Duas premissas verdadeiras isoladas foram unidas sob o conectivo de conjunção."
+                               f"**Explicação:** Duas premissas verdadeiras isoladas foram unidas através do conectivo de conjunção."
 
             return "**Regra Identificada:** Dedução Válida Geral.\n\n" \
-                   "**Explicação:** O argumento foi validado com sucesso através da matriz da tabela-verdade."
+                   "**Explicação:** O argumento foi considerado válido através do teste da matriz da tabela-verdade."
         else:
-            return "**Falácia Identificada:** Falácia Lógica.\n\n" \
-                   "**Por que é inválido?** A tabela-verdade provou computacionalmente que é possível obter premissas verdadeiras com uma conclusão falsa."
+            return "**Falácia Identificada:** Falácia Lógica Geral.\n\n" \
+                   "**Por que é inválido?** A tabela-verdade encontrou linhas onde todas as premissas são verdadeiras mas a conclusão é falsa."
 
+    # --- MÓDULO C: MOTOR DE INFERÊNCIA ---
     def processar_argumento(self, premissas: list, conclusao: str):
         todas_expressoes = premissas + [conclusao]
         variaveis = self.extrair_variaveis(todas_expressoes)
@@ -243,79 +241,48 @@ with st.sidebar.expander("Simplificação (S)"):
 with st.sidebar.expander("União (U)"):
     st.markdown("**Premissas:** `p, q` \n\n**Conclusão:** `p . q`")
 
-# --- INSTANCIAÇÃO DO MOTOR ---
+
+# --- CORPO PRINCIPAL DOS MÓDULOS ---
 motor = MotorLogico()
 
-# Definição das Abas incluindo o Módulo A como a central de Uploads/Texto
-tab_modulo_a, tab_equiv, tab_inferencia = st.tabs([
-    "📥 Módulo A: Interpretador & Arquivos",
-    "Módulo B: Provador de Equivalência",
-    "Módulo C: Motor de Inferência"
+tab_modulo_a, tab_modulo_b, tab_modulo_c = st.tabs([
+    "📥 Módulo A: Interpretador de Expressões",
+    "⚖️ Módulo B: Verificador de Equivalência",
+    "⚙️ Módulo C: Motor de Inferência"
 ])
 
-# --- MÓDULO A ---
+# --- MÓDULO A: INTERPRETADOR DE EXPRESSÕES ---
 with tab_modulo_a:
-    st.header("Interpretador de Expressões, Textos e Arquivos")
-    st.write("Insira dados de forma textual livre ou anexe um arquivo de texto contendo as expressões lógicas.")
+    st.header("Módulo A: Interpretador de Expressões")
+    st.write("Insira uma string contendo proposições compostas e conectivos lógicos para ver como o motor mapeia para os operadores nativos do Python.")
     
-    fonte_entrada = st.radio("Escolha o método de entrada do Módulo A:", ["Texto Livre / Pergunta", "Anexar Arquivo (.txt)"])
+    input_teste = st.text_input("Digite uma expressão de teste (Ex: (P . Q)' -> ~R + S):", value="(p . q)' -> ~r")
     
-    premissas_carregadas = []
-    conclusao_carregada = ""
-    
-    if fonte_entrada == "Texto Livre / Pergunta":
-        texto_input = st.text_area(
-            "Digite as proposições compostas (separe premissas por quebra de linha ou por vírgulas):", 
-            value="A -> B\n~B -> ~A"
-        )
-        # Processamento simples de linhas
-        linhas = [l.strip() for l in texto_input.split("\n") if l.strip()]
-        if linhas:
-            # Se houver mais de uma linha, assume que a última pode ser uma conclusão experimental
-            premissas_carregadas = linhas[:-1] if len(linhas) > 1 else linhas
-            conclusao_carregada = linhas[-1] if len(linhas) > 1 else ""
+    if input_teste:
+        st.subheader("Análise Sintática e Tradução do Interpretador")
+        
+        # Gera os dados processados pelo Módulo A
+        expr_normalizada = motor.normalizar_expressao(input_teste)
+        expr_python = motor.preparar_expressao(input_teste)
+        vars_identificadas = motor.extrair_variaveis([input_teste])
+        
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.info(f"**Expressão Normalizada:** `{expr_normalizada}`")
+            st.success(f"**Mapeamento Python (`eval`):** `{expr_python}`")
+        with col_b:
+            st.metric("Variáveis Identificadas", ", ".join(vars_identificadas) if vars_identificadas else "Nenhuma")
 
-    else:
-        arquivo_postado = st.file_uploader("Arraste ou selecione o arquivo de texto:", type=["txt"])
-        if arquivo_postado is not None:
-            conteudo_txt = arquivo_postado.read().decode("utf-8")
-            st.info("📄 Arquivo lido com sucesso!")
-            
-            # Divide o arquivo por quebras de linha
-            linhas_arquivo = [l.strip() for l in conteudo_txt.split("\n") if l.strip()]
-            
-            if linhas_arquivo:
-                st.write("**Expressões identificadas pelo Interpretador:**")
-                for index, linha in enumerate(linhas_arquivo):
-                    st.code(f"Linha {index+1}: {linha}")
-                
-                # Mapeia automaticamente para os módulos
-                premissas_carregadas = linhas_arquivo[:-1] if len(linhas_arquivo) > 1 else linhas_arquivo
-                conclusao_carregada = linhas_arquivo[-1] if len(linhas_arquivo) > 1 else ""
-
-    # Demonstração em tempo real do Mapeamento do Módulo A para Python
-    if premissas_carregadas:
-        st.subheader("⚙️ Mapeamento e Análise Sintática do Interpretador")
-        exemplo_analise = []
-        for p in premissas_carregadas:
-            exemplo_analise.append({
-                "Expressão Original": p,
-                "Normalizado (Módulo A)": motor.normalizar_expressao(p),
-                "Mapeamento Python (eval)": motor.preparar_expressao(p),
-                "Variáveis Identificadas": str(motor.extrair_variaveis([p]))
-            })
-        st.table(pd.DataFrame(exemplo_analise))
-
-# --- MÓDULO B ---
-with tab_equiv:
-    st.header("Verificador de Equivalência Lógica")
-    st.write("Verifique se duas expressões possuem tabelas-verdade idênticas.")
+# --- MÓDULO B: VERIFICADOR DE EQUIVALÊNCIA ---
+with tab_modulo_b:
+    st.header("Módulo B: Provador de Equivalência Lógica")
+    st.write("Insira duas expressões para verificar se elas possuem tabelas-verdade idênticas (Ex: Contrapositiva, Leis de De Morgan).")
     
     col1, col2 = st.columns(2)
     with col1:
-        e1 = st.text_input("Primeira Expressão:", value="A -> B")
+        e1 = st.text_input("Primeira Expressão (Entrada 1):", value="A -> B", key="eq_e1")
     with col2:
-        e2 = st.text_input("Segunda Expressão:", value="~B -> ~A")
+        e2 = st.text_input("Segunda Expressão (Entrada 2):", value="~B -> ~A", key="eq_e2")
 
     if st.button("Calcular Equivalência", key="btn_equiv"):
         if e1 and e2:
@@ -325,34 +292,67 @@ with tab_equiv:
                     st.success("### 🟩 Resposta: Expressões LOGICAMENTE EQUIVALENTES")
                 else:
                     st.error("### 🟥 Resposta: Expressões NÃO SÃO EQUIVALENTES")
+                st.write("#### Tabela-Verdade Computada:")
                 st.dataframe(df_resultado, use_container_width=True)
             except Exception as e:
                 st.error(f"Erro ao processar: {e}")
+        else:
+            st.warning("Por favor, preencha ambas as expressões.")
 
-# --- MÓDULO C ---
-with tab_inferencia:
-    st.header("Validador de Argumentos Lógicos")
-    st.write("Insira premissas e valide se a conclusão decorre logicamente delas.")
+# --- MÓDULO C: MOTOR DE INFERÊNCIA ---
+with tab_modulo_c:
+    st.header("Módulo C: Motor de Inferência (Validador)")
+    st.write("Defina as premissas separadas por vírgula e a conclusão para testar a validade do argumento.")
+
+    if 'num_premissas' not in st.session_state:
+        st.session_state.num_premissas = 1
+
+    col_btn1, col_btn2, _ = st.columns([1, 1, 4])
+    with col_btn1:
+        if st.button("➕ Adicionar Linha de Entrada"):
+            st.session_state.num_premissas += 1
+    with col_btn2:
+        if st.button("➖ Remover Linha de Entrada") and st.session_state.num_premissas > 1:
+            st.session_state.num_premissas -= 1
+
+    premissas_brutas = []
+    st.write("#### Premissas:")
     
-    # Se existirem premissas vindas do arquivo/texto do Módulo A, sugere preenchimento automático
-    sugestao_p = ", ".join(premissas_carregadas) if premissas_carregadas else "p -> q, p"
-    sugestao_c = conclusao_carregada if conclusao_carregada else "q"
+    defaults_premissas = ["p -> q, p"]
     
-    p_input = st.text_input("Premissas (separe por vírgulas):", value=sugestao_p)
-    c_input = st.text_input("Conclusão do Argumento:", value=sugestao_c)
+    for i in range(st.session_state.num_premissas):
+        val_default = defaults_premissas[i] if i < len(defaults_premissas) else ""
+        p_in = st.text_input(f"Entrada {i+1}:", value=val_default, key=f"premissa_{i}")
+        if p_in.strip():
+            premissas_brutas.append(p_in)
+
+    st.write("#### Conclusão:")
+    conclusao_input = st.text_input("Conclusão do Argumento:", value="q", key="conclusao")
 
     if st.button("Avaliar Validade do Argumento", key="btn_infer"):
-        if p_input and c_input:
+        if premissas_brutas and conclusao_input:
             try:
-                lista_premissas = [item.strip() for item in p_input.split(",") if item.strip()]
-                df_argumento, eh_valido, explicacao = motor.processar_argumento(lista_premissas, c_input)
+                premissas_finais = []
+                for item in premissas_brutas:
+                    if "," in item:
+                        sub_premissas = [sub.strip() for sub in item.split(",") if sub.strip()]
+                        premissas_finais.extend(sub_premissas)
+                    else:
+                        premissas_finais.append(item.strip())
+
+                df_argumento, eh_valido, explicacao = motor.processar_argumento(premissas_finais, conclusao_input)
                 
                 if eh_valido:
-                    st.success("### 🟩 Veredito: O argumento é VÁLIDO")
+                    st.success("### 🟩 Veredito: O argumento é VÁLIDO (Dedução Legítima)")
                 else:
-                    st.error("### 🟥 Veredito: O argumento é INVÁLIDO")
+                    st.error("### 🟥 Veredito: O argumento é INVÁLIDO (Falácia Lógica)")
                 
                 st.info(explicacao)
+
+                st.write("#### Análise da Tabela-Verdade do Argumento:")
                 st.dataframe(df_argumento, use_container_width=True)
+                
             except Exception as e:
                 st.error(f"Erro ao processar o argumento: {e}")
+        else:
+            st.warning("Certifique-se de preencher as premissas e a conclusão.")
