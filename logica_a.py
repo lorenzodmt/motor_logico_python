@@ -18,9 +18,8 @@ class MotorLogico:
         """Converte variáveis para maiúsculas, padroniza conectivos (+, ., ') e remove espaços."""
         expr = expressao.strip()
         
-        # 1. Trata a negação com aspa simples APÓS FECHAR PARÊNTESES (Ex: (p.q)' vira ~(p.q))
-        while ")'" in expr:
-            expr = re.sub(r'(\((?:[^()]*)\))\'', r'~\1', expr)
+        # 1. Trata a negação com aspa simples APÓS FECHAR PARÊNTESES (Ex: (p.q)' vira ~(p.q))        
+        expr = re.sub(r'(\((?:[^()]*)\))\'', r'~\1', expr)
         
         # 2. Trata a negação pós-fixada de variáveis isoladas (Ex: p' ou P' vira ~P)
         expr = re.sub(r'\b([a-zA-Z])\'', r'~\1', expr)
