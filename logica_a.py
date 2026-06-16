@@ -49,9 +49,8 @@ class MotorLogico:
         
         # Resolve o problema de sintaxe da negação (~): transforma '~X' em ' (not X) '
         # Isso evita que o Python quebre ao avaliar misturas de 'not' com '<='
-        while '~' in expr_traduzida:
-            # Captura o caractere ou bloco imediatamente após o '~' e envelopa com parênteses e not
-            expr_traduzida = re.sub(r'~([^()~&|+\-<>]+|\([^()]*\))', r'(not \1)', expr_traduzida)
+        # Captura o caractere ou bloco imediatamente após o '~' e envelopa com parênteses e not
+        expr_traduzida = re.sub(r'~([^()~&|+\-<>]+|\([^()]*\))', r'(not \1)', expr_traduzida)
 
         # Traduz os demais conectivos relacionais e binários
         for logico, python in self.REPLACEMENTS:
