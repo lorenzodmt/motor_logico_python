@@ -18,7 +18,8 @@ class MotorLogico:
         """Converte variáveis para maiúsculas, padroniza conectivos (+, ., ') e remove espaços."""
         expr = expressao.strip()
         
-        # 1. Trata a negação com aspa simples APÓS FECHAR PARÊNTESES (Ex: (p.q)' vira ~(p.q))        
+        # 1. CORREÇÃO ANTI-TRAVAMENTO: Substituição direta e segura para negação pós-parênteses
+        # Remove o while infinito e trata a expressão de forma linear
         expr = re.sub(r'(\((?:[^()]*)\))\'', r'~\1', expr)
         
         # 2. Trata a negação pós-fixada de variáveis isoladas (Ex: p' ou P' vira ~P)
@@ -46,10 +47,15 @@ class MotorLogico:
         """Traduz a expressão normalizada para a sintaxe segura do Python."""
         expr_traduzida = self.normalizar_expressao(expressao)
         
-        # Resolve o problema de sintaxe da negação (~): transforma '~X' em ' (not X) '
-        # Isso evita que o Python quebre ao avaliar misturas de 'not' com '<='
-        # Captura o caractere ou bloco imediatamente após o '~' e envelopa com parênteses e not
-        expr_traduzida = re.sub(r'~([^()~&|+\-<>]+|\([^()]*\))', r'(not \1)', expr_traduzida)
+        # CORREÇÃO ANTI-TRAVAMENTO: Adicionado contador de limite rígido para evitar loop infinito
+        limite = 0
+        while '~' in expr_traduzida and limite < 10:
+            # Captura o caractere ou bloco imediatamente após o '~' e envelopa com parênteses e not
+            nova_expr = re.sub(r'~([^()~&|+\-<>]+|\([^()]*\))', r'(not \1)', expr_traduzida)
+            if nova_expr == expr_traduzida: # Se a regex não alterou nada, interrompe para não travar
+                break
+            expr_traduzida = nova_expr
+            limite += 1
 
         # Traduz os demais conectivos relacionais e binários
         for logico, python in self.REPLACEMENTS:
@@ -125,7 +131,7 @@ class MotorLogico:
                                f"**Explicação:** A partir de uma condicional `{antecedente}->{consequente}` e da negação do seu consequente `{neg_consequente}`, " \
                                f"infere-se a negação do seu antecedente `{neg_antecedente}`."
 
-            # 3. SILOGISMO HIPOTÉTICO (SH) -> CONDICIONAIS CORRIGIDO!
+            # 3. SILOGISMO HIPOTÉTICO (SH) -> CONDICIONAIS CORRIGIDO NO SEU ARQUIVO ORIGINAL!
             condicionais = [p for p in p_norm if "->" in p and "<->" not in p]
             if len(condicionais) >= 2:
                 for p1 in condicionais:
@@ -291,7 +297,7 @@ st.set_page_config(page_title="Motor Lógico - UFN", page_icon="🧠", layout="w
 
 st.title("🧠 Protótipo de Motor Lógico em Python")
 st.markdown("""
-Mapeamento de Tabelas-Verdade, Equivalências e Motores de Inferência Aplicados à IA.  
+Mapeamento de Tabelas-Verdade, Equivalências e Motores de Inferência Aplicados à IA.
 *Desenvolvido para a disciplina de Lógica para Computação (Prof. Leandro Ribeiro Fontoura).*
 """)
 
@@ -333,19 +339,19 @@ with st.sidebar.expander("União (U)"):
 # --- CORPO PRINCIPAL DOS MÓDULOS ---
 motor = MotorLogico()
 
-# CRIAÇÃO DAS 3 ABAS COM O MÓDULO A INCLUSO
+# ABAS DO SISTEMA COM O MÓDULO A INTEGRADO NO INÍCIO
 tab_interpretador, tab_equiv, tab_inferencia = st.tabs([
     "Módulo A: Interpretador de Expressões",
     "Módulo B: Provador de Equivalência",
     "Módulo C: Motor de Inferência (Validador)"
 ])
 
-# --- MÓDULO A (INTERPRETADOR) ---
+# --- MÓDULO A ---
 with tab_interpretador:
     st.header("Módulo A: Interpretador e Normalizador de Fórmulas")
-    st.write("Digite uma expressão para ver como o Motor realiza a análise léxica, normalização de variáveis para maiúsculas e a tradução para código Python (`eval`) de forma segura.")
+    st.write("Digite uma expressão para visualizar em tempo real como o Motor executa a análise léxica, padronização e tradução sintática para Python.")
     
-    expressao_teste = st.text_input("Insira uma expressão lógica para visualização da tradução:", value="~A -> (B . c)'")
+    expressao_teste = st.text_input("Insira uma expressão lógica para teste:", value="~A -> (B . c)'")
     
     if expressao_teste:
         try:
@@ -362,7 +368,7 @@ with tab_interpretador:
         except Exception as e:
             st.error(f"Erro ao processar no interpretador: {e}")
 
-# --- MÓDULO B (EQUIVALÊNCIA) ---
+# --- MÓDULO B ---
 with tab_equiv:
     st.header("Verificador de Equivalência Lógica")
     st.write("Insira duas expressões para verificar se elas possuem tabelas-verdade idênticas (Ex: Leis de De Morgan, Contrapositiva).")
@@ -388,7 +394,7 @@ with tab_equiv:
         else:
             st.warning("Por favor, preencha ambas as expressões.")
 
-# --- MÓDULO C (INFERÊNCIA) ---
+# --- MÓDULO C ---
 with tab_inferencia:
     st.header("Validador de Argumentos Lógicos com Explicação Didática")
     st.write("Defina um conjunto de premissas e veja se a conclusão decorre logicamente delas.")
